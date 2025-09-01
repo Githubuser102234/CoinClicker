@@ -166,7 +166,6 @@ const alertContainer = document.getElementById('alert-container');
 let currentUserId = null;
 let userRefUnsubscribe = null;
 
-// Function to show on-UI alerts
 function showOnUiAlert(title, message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert-ui';
@@ -176,11 +175,9 @@ function showOnUiAlert(title, message) {
         <button onclick="this.closest('.alert-ui').remove()">OK</button>
     `;
     alertContainer.appendChild(alertDiv);
-    // Use a small timeout to trigger the transition
     setTimeout(() => alertDiv.classList.add('show'), 10);
 }
 
-// Ripple effect for button
 function createRipple(e) {
   const circle = document.createElement('span');
   const rect = button.getBoundingClientRect();
@@ -195,7 +192,6 @@ function createRipple(e) {
   button.appendChild(circle);
 }
 
-// Enable/disable button and spinner
 function enableClickButton() {
   spinner.style.display = 'none';
   btnText.textContent = 'Click Me!';
@@ -209,7 +205,6 @@ function disableClickButton(text = 'Loading...') {
   button.disabled = true;
 }
 
-// Handle click event to increment coins
 button.addEventListener('click', async (e) => {
   if (!button.classList.contains('enabled') || !currentUserId) return;
   createRipple(e);
@@ -217,8 +212,7 @@ button.addEventListener('click', async (e) => {
   const userCoinsRef = ref(db, `users/${currentUserId}/coins`);
   try {
     const transactionResult = await runTransaction(userCoinsRef, current => {
-      const newCoins = (current || 0) + 1;
-      return newCoins;
+      return (current || 0) + 1;
     });
 
     if (transactionResult.committed) {
@@ -231,7 +225,6 @@ button.addEventListener('click', async (e) => {
   }
 });
 
-// Sell coins functionality
 sellBtn.addEventListener('click', async () => {
     if (!currentUserId) {
         showOnUiAlert("Sign In Required", "Please sign in to sell coins.");
@@ -243,28 +236,21 @@ sellBtn.addEventListener('click', async () => {
         return;
     }
 
-    const userCoinsRef = ref(db, `users/${currentUserId}`);
+    const userCoinsRef = ref(db, `users/${currentUserId}/coins`);
     const soldCoinsRef = ref(db, 'soldCoins');
 
     try {
-        const transactionResult = await runTransaction(userCoinsRef, currentData => {
-            if (currentData === null) return {};
-            
-            const currentCoins = currentData.coins || 0;
-            if (currentCoins < amountToSell) {
-                return; // Abort transaction if not enough coins
+        const userTransaction = await runTransaction(userCoinsRef, currentCoins => {
+            const newCoins = (currentCoins || 0) - amountToSell;
+            if (newCoins < 0) {
+                return; // Abort if not enough coins
             }
-            
-            // The transaction updates both the user's coins and the global sold coins count
-            const newCoins = currentCoins - amountToSell;
-            return {
-                ...currentData,
-                coins: newCoins,
-                soldCoins: (currentData.soldCoins || 0) + amountToSell
-            };
+            return newCoins;
         });
 
-        if (transactionResult.committed) {
+        if (userTransaction.committed) {
+            // Only if the user's coins were successfully updated, update the global counter.
+            await runTransaction(soldCoinsRef, currentSold => (currentSold || 0) + amountToSell);
             showOnUiAlert("Success!", `${amountToSell} coins sold successfully!`);
         } else {
             showOnUiAlert("Failed", "You do not have enough coins to sell.");
@@ -275,7 +261,6 @@ sellBtn.addEventListener('click', async () => {
     }
 });
 
-// Sign-in/out
 signInBtn.addEventListener('click', async () => {
   disableClickButton('Signing in...');
   try {
@@ -297,7 +282,6 @@ signOutBtn.addEventListener('click', async () => {
   }
 });
 
-// Auth state listener
 onAuthStateChanged(auth, user => {
   if (userRefUnsubscribe) {
     userRefUnsubscribe();
@@ -311,15 +295,13 @@ onAuthStateChanged(auth, user => {
     
     const userRef = ref(db, `users/${currentUserId}`);
     
-    // Check if user data exists and create if not
     get(userRef).then(snap => {
         if (!snap.exists()) {
             set(userRef, { 
                 coins: 0, 
                 createdAt: Date.now(), 
                 displayName: user.displayName || null, 
-                photoURL: user.photoURL || null,
-                soldCoins: 0
+                photoURL: user.photoURL || null
             });
         }
     });
@@ -341,28 +323,33 @@ onAuthStateChanged(auth, user => {
   }
 });
 
-// Leaderboard
 lbBtn.addEventListener('click', async () => {
   leaderboard.style.display = 'flex';
   lbContent.innerHTML = '';
-  // Shimmer placeholders
+  
   for (let i = 0; i < 5; i++) {
     const ph = document.createElement('div');
     ph.className = 'leaderboard-entry shimmer';
     ph.style.height = '60px';
     lbContent.appendChild(ph);
   }
+
   try {
     const usersRef = ref(db, 'users');
     const q = query(usersRef, orderByChild('coins'), limitToLast(10));
     const snap = await get(q);
     
-    lbContent.innerHTML = ''; // Clear shimmer
+    lbContent.innerHTML = '';
     
-    if (snap.exists() && snap.val()) { 
-      // The orderByChild query returns results in ascending order, so we need to reverse the array.
-      const entries = Object.values(snap.val()).sort((a, b) => b.coins - a.coins);
+    if (snap.exists()) {
+      const entries = [];
+      snap.forEach(childSnap => {
+          entries.push(childSnap.val());
+      });
       
+      // Sort in descending order of coins
+      entries.sort((a, b) => b.coins - a.coins);
+
       if (entries.length > 0) {
         entries.forEach((e, index) => {
           const div = document.createElement('div');
@@ -389,7 +376,6 @@ lbBtn.addEventListener('click', async () => {
   }
 });
 
-// Listen for global sold coins updates
 const soldCoinsRef = ref(db, 'soldCoins');
 onValue(soldCoinsRef, (snapshot) => {
     const totalSold = snapshot.val() || 0;
@@ -400,7 +386,6 @@ lbClose.addEventListener('click', () => {
   leaderboard.style.display = 'none';
 });
 
-// Initial UI setup
 disableClickButton('Initializing...');
 </script>
 </body>
