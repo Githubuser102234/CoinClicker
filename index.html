@@ -58,6 +58,13 @@ button.small:active { transform: translateY(0); }
 .leaderboard-entry img { width:36px; height:36px; border-radius:50%; object-fit:cover; }
 .shimmer { background: linear-gradient(90deg, rgba(255,255,255,0.1) 25%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.1) 75%); background-size:200% 100%; animation: shimmer 1.5s infinite; border-radius:8px; }
 @keyframes shimmer { 0% { background-position:-200% 0; } 100% { background-position:200% 0; } }
+
+.sell-section { margin-top: 25px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+.sell-section input { width: 100px; padding: 8px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; text-align: center; }
+.sell-section button { padding: 8px 16px; border-radius: 8px; border: none; background: #f97316; color: white; cursor: pointer; transition: background-color 0.2s; }
+.sell-section button:hover { background: #ea580c; }
+#sold-coins-count { font-weight: 600; margin-top: 10px; color: var(--text-primary); }
+
 </style>
 </head>
 <body>
@@ -80,6 +87,13 @@ button.small:active { transform: translateY(0); }
   <button id="leaderboard-btn">Leaderboard</button>
 
   <div class="meta">Click the button to earn 1 coin. Coins are tied to your Google account.</div>
+
+  <div class="sell-section">
+    <div>Sell coins:</div>
+    <input type="number" id="sell-input" value="10" min="1">
+    <button id="sell-btn">Sell</button>
+    <div id="sold-coins-count">Global Sold Coins: 0</div>
+  </div>
 
   <div id="leaderboard" style="display:none;flex-direction:column;align-items:center;">
     <span class="close" id="lb-close">&times;</span>
@@ -122,8 +136,12 @@ const lbBtn = document.getElementById('leaderboard-btn');
 const lbClose = document.getElementById('lb-close');
 const lbContent = document.getElementById('lb-content');
 const leaderboard = document.getElementById('leaderboard');
+const sellInput = document.getElementById('sell-input');
+const sellBtn = document.getElementById('sell-btn');
+const soldCoinsCount = document.getElementById('sold-coins-count');
 
 let currentUserId = null;
+let coins = 0;
 let userRefUnsubscribe = null;
 let suppressAutoSignIn = false;
 
@@ -160,13 +178,41 @@ function disableClickButton(text = 'Loading...') {
 button.addEventListener('click', async (e) => {
   if (!button.classList.contains('enabled') || !currentUserId) return;
   createRipple(e);
-
+  
   const coinsRef = ref(db, `users/${currentUserId}/coins`);
   try {
     await runTransaction(coinsRef, current => (current || 0) + 1);
   } catch (err) {
     console.error("Transaction failed:", err);
   }
+});
+
+// Sell coins functionality
+sellBtn.addEventListener('click', async () => {
+    if (!currentUserId) return;
+    const amountToSell = parseInt(sellInput.value, 10);
+    if (amountToSell <= 0 || isNaN(amountToSell)) {
+        alert("Please enter a valid number of coins to sell.");
+        return;
+    }
+
+    const userCoinsRef = ref(db, `users/${currentUserId}/coins`);
+    const soldCoinsRef = ref(db, 'soldCoins');
+
+    try {
+        await runTransaction(userCoinsRef, currentCoins => {
+            const newCoins = (currentCoins || 0) - amountToSell;
+            return newCoins >= 0 ? newCoins : undefined;
+        });
+
+        await runTransaction(soldCoinsRef, currentSold => (currentSold || 0) + amountToSell);
+
+        // Update UI
+        alert(`${amountToSell} coins sold!`);
+    } catch (err) {
+        console.error("Sell transaction failed:", err);
+        alert("Failed to sell coins. Do you have enough coins?");
+    }
 });
 
 // Sign-in/out
@@ -206,7 +252,7 @@ onAuthStateChanged(auth, async user => {
     const userRef = ref(db, `users/${currentUserId}`);
     const off = onValue(userRef, snap => {
       const val = snap.val();
-      const coins = val ? val.coins || 0 : 0;
+      coins = val ? val.coins || 0 : 0;
       coinCount.textContent = `Coins: ${coins}`;
       if (!snap.exists()) {
         set(userRef, { coins: 0, createdAt: Date.now(), displayName: user.displayName || null, photoURL: user.photoURL || null });
@@ -275,6 +321,13 @@ lbBtn.addEventListener('click', async () => {
     console.error("Error loading leaderboard:", e);
     lbContent.innerHTML = '<div style="color:white;text-align:center;">Error loading leaderboard. Please try again.</div>';
   }
+});
+
+// Listen for global sold coins updates
+const soldCoinsRef = ref(db, 'soldCoins');
+onValue(soldCoinsRef, (snapshot) => {
+    const totalSold = snapshot.val() || 0;
+    soldCoinsCount.textContent = `Global Sold Coins: ${totalSold}`;
 });
 
 lbClose.addEventListener('click', () => {
