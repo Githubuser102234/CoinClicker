@@ -249,7 +249,9 @@ lbBtn.addEventListener('click', async () => {
     const usersRef = ref(db, 'users');
     const q = query(usersRef, orderByChild('coins'), limitToLast(10));
     const snap = await get(q);
-    if (snap.exists()) {
+    
+    // The key change is here: check if the snapshot exists before trying to access its value.
+    if (snap.exists() && snap.val()) { 
       const data = snap.val();
       let entries = Object.entries(data).map(([uid, val]) => ({ uid, ...val }));
       entries.sort((a, b) => b.coins - a.coins);
