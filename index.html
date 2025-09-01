@@ -259,11 +259,8 @@ lbBtn.addEventListener('click', async () => {
         div.className = 'leaderboard-entry';
         div.innerHTML = `
           <div style="font-weight:700; font-size:1.2em; width:20px;">${index + 1}</div>
-          ${e.photoURL ? `<img src="${e.photoURL}" alt="${e.displayName || 'User'}'s avatar">` : ''}
           <div style="flex:1;text-align:left;">
-            <strong>${e.displayName || 'Anonymous'}</strong>
-            <br>
-            <small style="color:var(--text-muted);">${e.email || ''}</small>
+            <strong>Anonymous</strong>
           </div>
           <div style="font-weight:600; color: var(--accent);">${e.coins || 0}💰</div>
         `;
