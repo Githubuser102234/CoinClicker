@@ -65,6 +65,20 @@ button.small:active { transform: translateY(0); }
 .sell-section button:hover { background: #ea580c; }
 #sold-coins-count { font-weight: 600; margin-top: 10px; color: var(--text-primary); }
 
+.leaderboard-entry-text {
+  flex: 1;
+  text-align: left;
+}
+
+.leaderboard-entry-stats {
+  text-align: right;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .alert-ui {
     position: absolute;
     top: 50%;
@@ -237,7 +251,8 @@ sellBtn.addEventListener('click', async () => {
     }
 
     const userCoinsRef = ref(db, `users/${currentUserId}/coins`);
-    const soldCoinsRef = ref(db, 'soldCoins');
+    const userSoldCoinsRef = ref(db, `users/${currentUserId}/soldCoins`);
+    const globalSoldCoinsRef = ref(db, 'soldCoins');
 
     try {
         const userTransaction = await runTransaction(userCoinsRef, currentCoins => {
@@ -249,8 +264,9 @@ sellBtn.addEventListener('click', async () => {
         });
 
         if (userTransaction.committed) {
-            // Only if the user's coins were successfully updated, update the global counter.
-            await runTransaction(soldCoinsRef, currentSold => (currentSold || 0) + amountToSell);
+            // Update user's sold coins and global sold coins in separate transactions to avoid conflicts
+            await runTransaction(userSoldCoinsRef, currentSold => (currentSold || 0) + amountToSell);
+            await runTransaction(globalSoldCoinsRef, currentSold => (currentSold || 0) + amountToSell);
             showOnUiAlert("Success!", `${amountToSell} coins sold successfully!`);
         } else {
             showOnUiAlert("Failed", "You do not have enough coins to sell.");
@@ -299,6 +315,7 @@ onAuthStateChanged(auth, user => {
         if (!snap.exists()) {
             set(userRef, { 
                 coins: 0, 
+                soldCoins: 0,
                 createdAt: Date.now(), 
                 displayName: user.displayName || null, 
                 photoURL: user.photoURL || null
@@ -336,8 +353,7 @@ lbBtn.addEventListener('click', async () => {
 
   try {
     const usersRef = ref(db, 'users');
-    const q = query(usersRef, orderByChild('coins'), limitToLast(10));
-    const snap = await get(q);
+    const snap = await get(usersRef);
     
     lbContent.innerHTML = '';
     
@@ -347,8 +363,8 @@ lbBtn.addEventListener('click', async () => {
           entries.push(childSnap.val());
       });
       
-      // Sort in descending order of coins
-      entries.sort((a, b) => b.coins - a.coins);
+      // Sort in descending order of sold coins
+      entries.sort((a, b) => (b.soldCoins || 0) - (a.soldCoins || 0));
 
       if (entries.length > 0) {
         entries.forEach((e, index) => {
@@ -357,10 +373,13 @@ lbBtn.addEventListener('click', async () => {
           div.innerHTML = `
             <div style="font-weight:700; font-size:1.2em; width:20px;">${index + 1}</div>
             ${e.photoURL ? `<img src="${e.photoURL}" alt="Avatar">` : ''}
-            <div style="flex:1;text-align:left;">
+            <div class="leaderboard-entry-text">
               <strong>${e.displayName || 'Anonymous'}</strong>
             </div>
-            <div style="font-weight:600; color: var(--accent);">${e.coins || 0}💰</div>
+            <div class="leaderboard-entry-stats">
+                <span style="color: var(--accent);">${e.coins || 0}💰</span>
+                <span style="font-weight:400; font-size:12px; color:var(--text-muted);">${e.soldCoins || 0} Sells</span>
+            </div>
           `;
           lbContent.appendChild(div);
         });
