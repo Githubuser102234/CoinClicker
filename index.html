@@ -65,6 +65,26 @@ button.small:active { transform: translateY(0); }
 .sell-section button:hover { background: #ea580c; }
 #sold-coins-count { font-weight: 600; margin-top: 10px; color: var(--text-primary); }
 
+.alert-ui {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 20px 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    z-index: 1000;
+    text-align: center;
+    min-width: 250px;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+.alert-ui.show { opacity: 1; }
+.alert-ui h3 { margin-bottom: 10px; color: var(--text-primary); }
+.alert-ui p { font-size: 14px; color: var(--text-muted); margin-bottom: 15px; }
+.alert-ui button { padding: 8px 20px; border-radius: 8px; border: none; background: var(--accent); color: white; cursor: pointer; }
+.alert-ui button:hover { background: var(--accent-dark); }
 </style>
 </head>
 <body>
@@ -100,6 +120,8 @@ button.small:active { transform: translateY(0); }
     <h2>Leaderboard</h2>
     <div id="lb-content" style="width:100%;display:flex;flex-direction:column;align-items:center;"></div>
   </div>
+
+  <div id="alert-container"></div>
 </div>
 
 <script type="module">
@@ -139,9 +161,24 @@ const leaderboard = document.getElementById('leaderboard');
 const sellInput = document.getElementById('sell-input');
 const sellBtn = document.getElementById('sell-btn');
 const soldCoinsCount = document.getElementById('sold-coins-count');
+const alertContainer = document.getElementById('alert-container');
 
 let currentUserId = null;
 let userRefUnsubscribe = null;
+
+// Function to show on-UI alerts
+function showOnUiAlert(title, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert-ui';
+    alertDiv.innerHTML = `
+        <h3>${title}</h3>
+        <p>${message}</p>
+        <button onclick="this.closest('.alert-ui').remove()">OK</button>
+    `;
+    alertContainer.appendChild(alertDiv);
+    // Use a small timeout to trigger the transition
+    setTimeout(() => alertDiv.classList.add('show'), 10);
+}
 
 // Ripple effect for button
 function createRipple(e) {
@@ -166,7 +203,7 @@ function enableClickButton() {
   button.disabled = false;
 }
 function disableClickButton(text = 'Loading...') {
-  spinner.style.display = '';
+  spinner.style.display = 'inline-block';
   btnText.textContent = text;
   button.classList.remove('enabled');
   button.disabled = true;
@@ -177,52 +214,64 @@ button.addEventListener('click', async (e) => {
   if (!button.classList.contains('enabled') || !currentUserId) return;
   createRipple(e);
   
-  const coinsRef = ref(db, `users/${currentUserId}/coins`);
+  const userCoinsRef = ref(db, `users/${currentUserId}/coins`);
   try {
-    await runTransaction(coinsRef, current => {
+    const transactionResult = await runTransaction(userCoinsRef, current => {
       const newCoins = (current || 0) + 1;
-      coinCount.textContent = `Coins: ${newCoins}`;
       return newCoins;
     });
+
+    if (transactionResult.committed) {
+        coinCount.textContent = `Coins: ${transactionResult.snapshot.val()}`;
+    }
+
   } catch (err) {
     console.error("Transaction failed:", err);
+    showOnUiAlert("Error", "Failed to update coins. Please try again.");
   }
 });
 
 // Sell coins functionality
 sellBtn.addEventListener('click', async () => {
     if (!currentUserId) {
-        alert("Please sign in to sell coins.");
+        showOnUiAlert("Sign In Required", "Please sign in to sell coins.");
         return;
     }
     const amountToSell = parseInt(sellInput.value, 10);
     if (amountToSell <= 0 || isNaN(amountToSell)) {
-        alert("Please enter a valid number of coins to sell.");
+        showOnUiAlert("Invalid Amount", "Please enter a valid number of coins to sell.");
         return;
     }
 
-    const userCoinsRef = ref(db, `users/${currentUserId}/coins`);
+    const userCoinsRef = ref(db, `users/${currentUserId}`);
     const soldCoinsRef = ref(db, 'soldCoins');
 
     try {
-        let success = false;
-        await runTransaction(userCoinsRef, currentCoins => {
-            if (!currentCoins || currentCoins < amountToSell) {
+        const transactionResult = await runTransaction(userCoinsRef, currentData => {
+            if (currentData === null) return {};
+            
+            const currentCoins = currentData.coins || 0;
+            if (currentCoins < amountToSell) {
                 return; // Abort transaction if not enough coins
             }
-            success = true;
-            return currentCoins - amountToSell;
+            
+            // The transaction updates both the user's coins and the global sold coins count
+            const newCoins = currentCoins - amountToSell;
+            return {
+                ...currentData,
+                coins: newCoins,
+                soldCoins: (currentData.soldCoins || 0) + amountToSell
+            };
         });
 
-        if (success) {
-            await runTransaction(soldCoinsRef, currentSold => (currentSold || 0) + amountToSell);
-            alert(`${amountToSell} coins sold successfully!`);
+        if (transactionResult.committed) {
+            showOnUiAlert("Success!", `${amountToSell} coins sold successfully!`);
         } else {
-            alert("Failed to sell coins. You do not have enough coins.");
+            showOnUiAlert("Failed", "You do not have enough coins to sell.");
         }
     } catch (err) {
         console.error("Sell transaction failed:", err);
-        alert("An error occurred during the transaction. Please try again.");
+        showOnUiAlert("Error", "An error occurred during the transaction. Please try again.");
     }
 });
 
@@ -233,6 +282,7 @@ signInBtn.addEventListener('click', async () => {
     await signInWithPopup(auth, provider);
   } catch (e) {
     console.warn("Sign-in failed:", e);
+    showOnUiAlert("Sign-in Failed", "Could not sign in with Google. Please try again.");
     disableClickButton('Sign in to play');
   }
 });
@@ -243,6 +293,7 @@ signOutBtn.addEventListener('click', async () => {
     await signOut(auth);
   } catch (e) {
     console.error("Sign-out failed:", e);
+    showOnUiAlert("Sign-out Failed", "Could not sign out. Please try again.");
   }
 });
 
@@ -259,13 +310,24 @@ onAuthStateChanged(auth, user => {
     userInfo.innerHTML = `${user.photoURL ? `<img class="avatar" src="${user.photoURL}" alt="User avatar">` : ''}<div><div style="font-weight:600">${user.displayName || user.email}</div><div style="font-size:12px; color:var(--text-muted)">${user.email || ''}</div></div>`;
     
     const userRef = ref(db, `users/${currentUserId}`);
+    
+    // Check if user data exists and create if not
+    get(userRef).then(snap => {
+        if (!snap.exists()) {
+            set(userRef, { 
+                coins: 0, 
+                createdAt: Date.now(), 
+                displayName: user.displayName || null, 
+                photoURL: user.photoURL || null,
+                soldCoins: 0
+            });
+        }
+    });
+
     const off = onValue(userRef, snap => {
       const val = snap.val();
       const coins = val ? val.coins || 0 : 0;
       coinCount.textContent = `Coins: ${coins}`;
-      if (!snap.exists()) {
-        set(userRef, { coins: 0, createdAt: Date.now(), displayName: user.displayName || null, photoURL: user.photoURL || null });
-      }
     });
     userRefUnsubscribe = off;
     enableClickButton();
@@ -295,13 +357,11 @@ lbBtn.addEventListener('click', async () => {
     const q = query(usersRef, orderByChild('coins'), limitToLast(10));
     const snap = await get(q);
     
+    lbContent.innerHTML = ''; // Clear shimmer
+    
     if (snap.exists() && snap.val()) { 
-      const data = snap.val();
-      const entries = Object.values(data)
-                          .filter(user => user.coins > 0)
-                          .sort((a, b) => b.coins - a.coins);
-      
-      lbContent.innerHTML = ''; // Clear shimmer
+      // The orderByChild query returns results in ascending order, so we need to reverse the array.
+      const entries = Object.values(snap.val()).sort((a, b) => b.coins - a.coins);
       
       if (entries.length > 0) {
         entries.forEach((e, index) => {
