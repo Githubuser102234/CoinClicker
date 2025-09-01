@@ -1,354 +1,257 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Advanced Coin Clicker</title>
-  <style>
-    :root {
-      --bg: #f3f4f6;
-      --card: #fff;
-      --muted: #6b7280;
-      --accent: #4caf50;
-      --button-gray: #9ca3af;
-    }
-    html,body { height:100%; margin:0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:var(--bg); display:flex; align-items:center; justify-content:center; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ultimate Coin Clicker</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f0f2f5;
+  --card: #fff;
+  --accent: #4caf50;
+  --muted: #6b7280;
+  --button-gray: #9ca3af;
+  --hover-shadow: rgba(0,0,0,0.15);
+}
+* { box-sizing: border-box; margin:0; padding:0; font-family: 'Inter', sans-serif; }
+body { background: var(--bg); display:flex; justify-content:center; align-items:center; min-height:100vh; }
 
-    .container {
-      width: 360px;
-      max-width: calc(100% - 32px);
-      background: var(--card);
-      border-radius: 12px;
-      box-shadow: 0 6px 20px rgba(15,23,42,0.08);
-      padding: 18px;
-      text-align: center;
-    }
+.container { width: 380px; max-width:95%; background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); text-align:center; position:relative; }
+.top { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:8px; }
+.user { display:flex; align-items:center; gap:10px; color: var(--muted); font-size:14px; min-height:40px; }
+.avatar { width:36px; height:36px; border-radius:50%; object-fit:cover; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+.controls { display:flex; gap:8px; align-items:center; }
+button.small { padding:6px 10px; font-size:13px; border-radius:8px; border:none; cursor:pointer; background:#efefef; transition:0.2s; }
+button.small:hover { background:#ddd; }
+#coin-count { font-size:22px; font-weight:700; margin-bottom:20px; color:#111827; }
 
-    .top {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom: 14px;
-      gap: 8px;
-    }
-    .user {
-      display:flex;
-      align-items:center;
-      gap:8px;
-      color:var(--muted);
-      font-size: 14px;
-      min-height: 40px;
-    }
-    .avatar {
-      width:34px; height:34px; border-radius:50%; object-fit:cover; box-shadow: 0 1px 0 rgba(0,0,0,0.05);
-    }
-    .controls { display:flex; gap:8px; align-items:center; }
+#click-button { position:relative; overflow:hidden; padding:16px 50px; font-size:18px; color:white; background-color:var(--button-gray); border:none; border-radius:12px; cursor:not-allowed; outline:none; display:inline-flex; align-items:center; justify-content:center; min-width:200px; transition: all 0.15s ease; box-shadow: 0 6px 14px rgba(2,6,23,0.07); }
+#click-button.enabled { background-color: var(--accent); cursor:pointer; }
+#click-button.enabled:hover { transform: scale(1.03); box-shadow:0 8px 20px rgba(0,0,0,0.15); }
+#click-button:active.enabled { transform: scale(0.97); }
 
-    button.small {
-      padding:6px 10px;
-      font-size:13px;
-      border-radius:8px;
-      border: none;
-      cursor:pointer;
-      background: #efefef;
-    }
+.spinner { border:3px solid rgba(255,255,255,0.28); border-top:3px solid rgba(255,255,255,0.98); border-radius:50%; width:18px; height:18px; animation:spin 900ms linear infinite; margin-right:10px; display:inline-block; vertical-align:middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-    #coin-count {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color:#111827;
-    }
+.ripple { position:absolute; border-radius:50%; transform:scale(0); animation:ripple 600ms linear; background: rgba(255,255,255,0.7); pointer-events:none; will-change: transform, opacity; }
+@keyframes ripple { to { transform: scale(4); opacity:0; } }
 
-    /* Click button */
-    #click-button {
-      position:relative;
-      overflow:hidden;
-      padding: 14px 40px;
-      font-size: 18px;
-      color: white;
-      background-color: var(--button-gray);
-      border: none;
-      border-radius: 12px;
-      cursor: not-allowed;
-      outline: none;
-      display: inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width: 200px;
-      user-select: none;
-      transition: transform 80ms ease, background-color 150ms;
-      box-shadow: 0 6px 14px rgba(2,6,23,0.07);
-    }
-    #click-button.enabled {
-      background-color: var(--accent);
-      cursor: pointer;
-    }
-    #click-button:active.enabled { transform: translateY(1px) scale(0.998); }
+.meta { color:var(--muted); font-size:13px; margin-top:12px; }
 
-    .spinner {
-      border: 3px solid rgba(255,255,255,0.28);
-      border-top: 3px solid rgba(255,255,255,0.98);
-      border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      animation: spin 900ms linear infinite;
-      margin-right: 10px;
-      display:inline-block;
-      vertical-align:middle;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+#leaderboard-btn { margin-top:20px; padding:10px 20px; font-size:16px; border-radius:12px; border:none; background:#3b82f6; color:white; cursor:pointer; transition:0.2s; }
+#leaderboard-btn:hover { background:#2563eb; }
 
-    .ripple {
-      position:absolute;
-      border-radius:50%;
-      transform:scale(0);
-      animation: ripple 600ms linear;
-      background: rgba(255,255,255,0.7);
-      pointer-events: none;
-      will-change: transform, opacity;
-    }
-    @keyframes ripple {
-      to { transform: scale(4); opacity: 0; }
-    }
+#leaderboard { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); display:none; flex-direction:column; justify-content:center; align-items:center; border-radius:16px; padding:20px; overflow-y:auto; }
+#leaderboard .close { align-self:flex-end; margin-bottom:10px; cursor:pointer; font-size:18px; font-weight:700; color:white; }
+#leaderboard h2 { color:white; margin-bottom:15px; }
+.leaderboard-entry { background:rgba(255,255,255,0.9); width:90%; padding:10px 14px; border-radius:10px; display:flex; align-items:center; gap:12px; margin-bottom:8px; box-shadow:0 3px 6px rgba(0,0,0,0.1); }
+.leaderboard-entry img { width:32px; height:32px; border-radius:50%; object-fit:cover; }
+.shimmer { background: linear-gradient(90deg, rgba(255,255,255,0.1) 25%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.1) 75%); background-size:200% 100%; animation: shimmer 1.5s infinite; border-radius:8px; }
+@keyframes shimmer { 0% { background-position:-200% 0; } 100% { background-position:200% 0; } }
 
-    .meta { color:var(--muted); font-size:13px; margin-top:10px; }
-  </style>
+/* confetti circles */
+.confetti { position:absolute; width:8px; height:8px; border-radius:50%; pointer-events:none; opacity:1; animation:confetti-fall 1s linear forwards; }
+@keyframes confetti-fall { to { transform: translate(var(--x,0px), var(--y,100px)) rotate(360deg); opacity:0; } }
+</style>
 </head>
 <body>
-  <div class="container" role="application" aria-label="Coin Clicker">
-    <div class="top">
-      <div class="user" id="user-info">
-        <span id="signin-prompt">Initializing...</span>
-      </div>
-      <div class="controls">
-        <button id="sign-in" class="small" style="display:none">Sign In</button>
-        <button id="sign-out" class="small" style="display:none">Sign Out</button>
-      </div>
+<div class="container" role="application" aria-label="Ultimate Coin Clicker">
+  <div class="top">
+    <div class="user" id="user-info"><span id="signin-prompt">Initializing...</span></div>
+    <div class="controls">
+      <button id="sign-in" class="small" style="display:none">Sign In</button>
+      <button id="sign-out" class="small" style="display:none">Sign Out</button>
     </div>
-
-    <div id="coin-count">Coins: 0</div>
-
-    <button id="click-button" aria-live="polite" disabled>
-      <span class="spinner" id="spinner" aria-hidden="true"></span>
-      <span id="btn-text">Loading...</span>
-    </button>
-
-    <div class="meta">Click the button to earn 1 coin. Coins are tied to your Google account.</div>
   </div>
 
-  <script type="module">
-    // --- Firebase imports ---
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
-    import { getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-    import { getDatabase, ref, get, set, update, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+  <div id="coin-count">Coins: 0</div>
 
-    // --- Your Firebase config (kept from your snippet; added databaseURL) ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyDmTojLCY55Y-M3nA-NVa0qhGmW2MGJlQg",
-      authDomain: "coinclicker-a1b57.firebaseapp.com",
-      projectId: "coinclicker-a1b57",
-      storageBucket: "coinclicker-a1b57.firebasestorage.app",
-      messagingSenderId: "932444438707",
-      appId: "1:932444438707:web:23a6b1ad3027f1b3f330c6",
-      measurementId: "G-RJ4ZTDMV30",
-      databaseURL: "https://coinclicker-a1b57-default-rtdb.firebaseio.com/"
-    };
+  <button id="click-button" aria-live="polite" disabled>
+    <span class="spinner" id="spinner" aria-hidden="true"></span>
+    <span id="btn-text">Loading...</span>
+  </button>
 
-    // --- Init Firebase ---
-    const app = initializeApp(firebaseConfig);
-    // analytics is optional and can fail on some origins (file://); we try/catch to avoid blocking app.
-    try { getAnalytics(app); } catch(e) { /* ignore analytics init errors */ }
+  <button id="leaderboard-btn">Leaderboard</button>
 
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
-    const db = getDatabase(app);
+  <div class="meta">Click the button to earn 1 coin. Coins are tied to your Google account.</div>
 
-    // --- DOM ---
-    const button = document.getElementById('click-button');
-    const spinner = document.getElementById('spinner');
-    const btnText = document.getElementById('btn-text');
-    const coinCount = document.getElementById('coin-count');
-    const userInfo = document.getElementById('user-info');
-    const signOutBtn = document.getElementById('sign-out');
-    const signInBtn = document.getElementById('sign-in');
+  <div id="leaderboard" style="display:flex;flex-direction:column;align-items:center;">
+    <span class="close" id="lb-close">&times;</span>
+    <h2>Leaderboard</h2>
+    <div id="lb-content" style="width:100%;display:flex;flex-direction:column;align-items:center;"></div>
+  </div>
+</div>
 
-    // --- State ---
-    let currentUserId = null;
-    let suppressAutoSignIn = false; // when user explicitly signs out, we won't auto-popup the login
-    let coins = 0;
-    let userRefUnsubscribe = null;
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
+import { getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getDatabase, ref, get, onValue, runTransaction, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-    // visual helpers
-    function enableClickButton() {
-      spinner.style.display = 'none';
-      btnText.textContent = 'Click Me!';
-      button.classList.add('enabled');
-      button.disabled = false;
-      button.style.cursor = 'pointer';
-    }
-    function disableClickButton(loadingText = 'Loading...') {
-      spinner.style.display = '';
-      btnText.textContent = loadingText;
-      button.classList.remove('enabled');
-      button.disabled = true;
-      button.style.cursor = 'not-allowed';
-    }
+const firebaseConfig = {
+  apiKey: "AIzaSyDmTojLCY55Y-M3nA-NVa0qhGmW2MGJlQg",
+  authDomain: "coinclicker-a1b57.firebaseapp.com",
+  projectId: "coinclicker-a1b57",
+  storageBucket: "coinclicker-a1b57.firebasestorage.app",
+  messagingSenderId: "932444438707",
+  appId: "1:932444438707:web:23a6b1ad3027f1b3f330c6",
+  measurementId: "G-RJ4ZTDMV30",
+  databaseURL: "https://coinclicker-a1b57-default-rtdb.firebaseio.com/"
+};
 
-    // small ripple helper
-    function createRipple(e) {
-      const circle = document.createElement('span');
-      const rect = button.getBoundingClientRect();
-      const diameter = Math.max(rect.width, rect.height);
-      const radius = diameter / 2;
-      circle.style.width = circle.style.height = diameter + 'px';
-      circle.style.left = (e.clientX - rect.left - radius) + 'px';
-      circle.style.top = (e.clientY - rect.top - radius) + 'px';
-      circle.className = 'ripple';
-      const existing = button.getElementsByClassName('ripple')[0];
-      if (existing) existing.remove();
-      button.appendChild(circle);
-      setTimeout(() => circle.remove(), 700);
-    }
+const app = initializeApp(firebaseConfig);
+try{ getAnalytics(app);} catch(e){}
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+const db = getDatabase(app);
 
-    // --- Click handler: use atomic transaction to increment coins server-side ---
-    button.addEventListener('click', async (e) => {
-      if (!button.classList.contains('enabled') || !currentUserId) return;
-      createRipple(e);
+const button = document.getElementById('click-button');
+const spinner = document.getElementById('spinner');
+const btnText = document.getElementById('btn-text');
+const coinCount = document.getElementById('coin-count');
+const userInfo = document.getElementById('user-info');
+const signOutBtn = document.getElementById('sign-out');
+const signInBtn = document.getElementById('sign-in');
+const lbBtn = document.getElementById('leaderboard-btn');
+const lbClose = document.getElementById('lb-close');
+const lbContent = document.getElementById('lb-content');
+const leaderboard = document.getElementById('leaderboard');
 
-      // quick local optimistic UI bump (will be corrected by onValue listener)
-      coins = (coins || 0) + 1;
-      coinCount.textContent = 'Coins: ' + coins;
+let currentUserId = null;
+let coins = 0;
+let userRefUnsubscribe = null;
+let suppressAutoSignIn=false;
 
-      const coinsRef = ref(db, `users/${currentUserId}/coins`);
-      try {
-        await runTransaction(coinsRef, (current) => {
-          return (current || 0) + 1;
-        });
-        // onValue listener will pick up final value; nothing else required here
-      } catch (err) {
-        console.error('Transaction error', err);
-        // rollback local optimistic change if desired: fetch current
-        const snap = await get(coinsRef);
-        coins = snap.exists() ? (snap.val() || 0) : 0;
-        coinCount.textContent = 'Coins: ' + coins;
-        alert('Could not increment coins — check network/console.');
+// ripple helper
+function createRipple(e){
+  const circle=document.createElement('span');
+  const rect=button.getBoundingClientRect();
+  const diameter=Math.max(rect.width,rect.height);
+  const radius=diameter/2;
+  circle.style.width=circle.style.height=diameter+'px';
+  circle.style.left=(e.clientX-rect.left-radius)+'px';
+  circle.style.top=(e.clientY-rect.top-radius)+'px';
+  circle.className='ripple';
+  const existing=button.getElementsByClassName('ripple')[0];
+  if(existing) existing.remove();
+  button.appendChild(circle);
+  setTimeout(()=>circle.remove(),700);
+}
+
+// coin confetti
+function confettiBurst(x,y){
+  for(let i=0;i<12;i++){
+    const c=document.createElement('div');
+    c.className='confetti';
+    c.style.left=x+'px';
+    c.style.top=y+'px';
+    c.style.background=`hsl(${Math.random()*360},80%,60%)`;
+    c.style.setProperty('--x',(Math.random()*80-40)+'px');
+    c.style.setProperty('--y',(-Math.random()*100-50)+'px');
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),1200);
+  }
+}
+
+// enable/disable button
+function enableClickButton(){
+  spinner.style.display='none';
+  btnText.textContent='Click Me!';
+  button.classList.add('enabled');
+  button.disabled=false;
+}
+function disableClickButton(text='Loading...'){
+  spinner.style.display='';
+  btnText.textContent=text;
+  button.classList.remove('enabled');
+  button.disabled=true;
+}
+
+// handle click
+button.addEventListener('click', async (e)=>{
+  if(!button.classList.contains('enabled')||!currentUserId) return;
+  createRipple(e);
+  const rect=button.getBoundingClientRect();
+  confettiBurst(rect.width/2+rect.left,rect.top+rect.height/2);
+
+  coins=(coins||0)+1;
+  coinCount.textContent='Coins: '+coins;
+  const coinsRef=ref(db, `users/${currentUserId}/coins`);
+  try{
+    await runTransaction(coinsRef,current=>(current||0)+1);
+  }catch(err){console.error(err);}
+});
+
+// Sign-in/out
+signInBtn.addEventListener('click', async ()=>{
+  suppressAutoSignIn=false;
+  disableClickButton('Signing in...');
+  signInBtn.style.display='none';
+  try{ await signInWithPopup(auth,provider);} catch(e){console.warn(e);disableClickButton('Sign in to play'); signInBtn.style.display='';}
+});
+signOutBtn.addEventListener('click', async ()=>{
+  suppressAutoSignIn=true;
+  disableClickButton('Signing out...');
+  try{ await signOut(auth);} catch(e){console.error(e);}
+});
+
+// auth state
+onAuthStateChanged(auth, async user=>{
+  if(userRefUnsubscribe){ userRefUnsubscribe(); userRefUnsubscribe=null; }
+  if(user){
+    currentUserId=user.uid;
+    signOutBtn.style.display='';
+    signInBtn.style.display='none';
+    userInfo.innerHTML=`${user.photoURL?`<img class="avatar" src="${user.photoURL}">`:''}<div style="text-align:left"><div style="font-weight:600">${user.displayName||user.email}</div><div style="font-size:12px; color:var(--muted)">${user.email||''}</div></div>`;
+    const uRef=ref(db, `users/${currentUserId}`);
+    try{
+      const snap=await get(uRef);
+      if(!snap.exists()){ await set(uRef,{coins:0,createdAt:Date.now(), displayName:user.displayName||null}); coins=0; coinCount.textContent='Coins: 0'; }
+      else { const val=snap.val(); coins=val.coins||0; coinCount.textContent='Coins: '+coins;}
+    }catch(e){console.error(e);}
+    const liveRef=ref(db, `users/${currentUserId}`);
+    const off=onValue(liveRef,snap=>{ if(!snap.exists()) return; const val=snap.val(); coins=val.coins||0; coinCount.textContent='Coins: '+coins; });
+    userRefUnsubscribe=()=>{off();};
+    enableClickButton();
+  }else{
+    currentUserId=null;
+    userInfo.textContent='Not signed in';
+    signOutBtn.style.display='none';
+    if(!suppressAutoSignIn){
+      try{ await signInWithPopup(auth,provider);} catch(e){console.warn(e); signInBtn.style.display=''; disableClickButton('Sign in to play'); }
+    }else{ signInBtn.style.display=''; disableClickButton('Signed out');}
+  }
+});
+
+// Leaderboard
+lbBtn.addEventListener('click', async ()=>{
+  leaderboard.style.display='flex';
+  lbContent.innerHTML=''; // shimmer placeholders
+  for(let i=0;i<5;i++){
+    const ph=document.createElement('div'); ph.className='leaderboard-entry shimmer'; ph.style.height='42px'; lbContent.appendChild(ph);
+  }
+  try{
+    const usersRef=ref(db,'users');
+    const q=query(usersRef, orderByChild('coins'), limitToLast(10));
+    const snap=await get(q);
+    if(snap.exists()){
+      const data=snap.val();
+      let entries=Object.entries(data).map(([uid,val])=>({uid,...val}));
+      entries.sort((a,b)=>b.coins-a.coins);
+      lbContent.innerHTML='';
+      for(const e of entries){
+        const div=document.createElement('div'); div.className='leaderboard-entry';
+        div.innerHTML=`${e.photoURL?`<img src="${e.photoURL}">`:''}<div style="flex:1;text-align:left;"><strong>${e.displayName||e.email||'Unknown'}</strong><br><small>${e.email||''}</small></div><div style="font-weight:600;">${e.coins||0}💰</div>`;
+        lbContent.appendChild(div);
       }
-    });
+    }else{ lbContent.innerHTML='<div style="color:white">No data yet</div>'; }
+  }catch(e){ console.error(e); lbContent.innerHTML='<div style="color:white">Error loading leaderboard</div>'; }
+});
+lbClose.addEventListener('click', ()=>{leaderboard.style.display='none';});
 
-    // Sign-in and Sign-out button handlers
-    signInBtn.addEventListener('click', async () => {
-      suppressAutoSignIn = false;
-      disableClickButton('Signing in...');
-      signInBtn.style.display = 'none';
-      try {
-        await signInWithPopup(auth, provider);
-      } catch (err) {
-        console.error('Sign in failed', err);
-        disableClickButton('Sign in to play');
-        signInBtn.style.display = '';
-        alert('Sign-in failed or canceled.');
-      }
-    });
-
-    signOutBtn.addEventListener('click', async () => {
-      suppressAutoSignIn = true;
-      disableClickButton('Signing out...');
-      try {
-        await signOut(auth);
-        // onAuthStateChanged will handle UI changes
-      } catch (err) {
-        console.error('Sign out failed', err);
-        alert('Sign out failed — check console.');
-      }
-    });
-
-    // Auth state observer
-    onAuthStateChanged(auth, async (user) => {
-      // cleanup previous DB listener
-      if (typeof userRefUnsubscribe === 'function') {
-        userRefUnsubscribe();
-        userRefUnsubscribe = null;
-      }
-
-      if (user) {
-        // signed in
-        currentUserId = user.uid;
-        signOutBtn.style.display = '';
-        signInBtn.style.display = 'none';
-        userInfo.innerHTML = `
-          ${user.photoURL ? `<img class="avatar" src="${user.photoURL}" alt="avatar">` : ''}
-          <div style="text-align:left">
-            <div style="font-weight:600; font-size:14px;">${user.displayName || user.email}</div>
-            <div style="font-size:12px; color:var(--muted)">${user.email || ''}</div>
-          </div>
-        `;
-        // ensure DB record exists
-        const uRef = ref(db, `users/${currentUserId}`);
-        try {
-          const snap = await get(uRef);
-          if (!snap.exists()) {
-            await set(uRef, { coins: 0, createdAt: Date.now(), displayName: user.displayName || null });
-            coins = 0;
-            coinCount.textContent = 'Coins: 0';
-          } else {
-            const val = snap.val();
-            coins = val.coins || 0;
-            coinCount.textContent = 'Coins: ' + coins;
-            // update displayName if changed
-            const needUpdate = (val.displayName !== user.displayName);
-            if (needUpdate) await update(uRef, { displayName: user.displayName || null });
-          }
-        } catch (err) {
-          console.error('DB init error', err);
-          alert('Could not read/write user data — check DB rules & console.');
-        }
-
-        // Realtime listener for this user's record
-        const liveRef = ref(db, `users/${currentUserId}`);
-        const off = onValue(liveRef, (snap) => {
-          if (!snap.exists()) return;
-          const data = snap.val();
-          const serverCoins = data.coins || 0;
-          coins = serverCoins;
-          coinCount.textContent = 'Coins: ' + serverCoins;
-        }, (err) => {
-          console.error('onValue error', err);
-        });
-        // onValue returns an unsubscribe function (not directly, but we can emulate)
-        userRefUnsubscribe = () => { off(); };
-
-        // enable click button
-        enableClickButton();
-      } else {
-        // signed out
-        currentUserId = null;
-        userInfo.textContent = 'Not signed in';
-        signOutBtn.style.display = 'none';
-        // If the user explicitly signed out, don't auto-popup sign-in
-        if (!suppressAutoSignIn) {
-          // Attempt to open sign-in immediately (previous behavior). If user cancels or an error occurs,
-          // we'll show a Sign In button so they can sign in manually without a forced popup.
-          try {
-            await signInWithPopup(auth, provider);
-            // if successful, onAuthStateChanged will re-run and handle setup
-            return;
-          } catch (err) {
-            console.warn('Auto sign-in popup suppressed by user or failed', err);
-            signInBtn.style.display = '';
-            disableClickButton('Sign in to play');
-          }
-        } else {
-          // user chose to sign out -> show sign in button and stop auto popups
-          signInBtn.style.display = '';
-          disableClickButton('Signed out');
-        }
-      }
-    });
-
-    // initial UI state
-    disableClickButton('Initializing...');
-  </script>
+// initial UI
+disableClickButton('Initializing...');
+</script>
 </body>
 </html>
