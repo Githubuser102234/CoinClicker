@@ -185,7 +185,7 @@ button.small:active { transform: translateY(0); }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
 import { getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getDatabase, ref, get, onValue, runTransaction, query, orderByChild, limitToLast, set, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { getDatabase, ref, get, onValue, runTransaction, set, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDmTojLCY55Y-M3nA-NVa0qhGmW2MGJlQg",
@@ -266,6 +266,18 @@ function disableClickButton(text = 'Loading...') {
   button.disabled = true;
 }
 
+async function updateLastActive() {
+    if (currentUserId) {
+        try {
+            await update(ref(db, `users/${currentUserId}`), {
+                lastActive: Date.now()
+            });
+        } catch (e) {
+            console.error("Failed to update last active timestamp:", e);
+        }
+    }
+}
+
 button.addEventListener('click', async (e) => {
   if (!button.classList.contains('enabled') || !currentUserId) return;
   createRipple(e);
@@ -278,6 +290,7 @@ button.addEventListener('click', async (e) => {
 
     if (transactionResult.committed) {
         coinCount.textContent = `Coins: ${transactionResult.snapshot.val()}`;
+        updateLastActive();
     }
 
   } catch (err) {
@@ -311,9 +324,9 @@ sellBtn.addEventListener('click', async () => {
         });
 
         if (userTransaction.committed) {
-            // Update user's sold coins and global sold coins in separate transactions to avoid conflicts
             await runTransaction(userSoldCoinsRef, currentSold => (currentSold || 0) + amountToSell);
             await runTransaction(globalSoldCoinsRef, currentSold => (currentSold || 0) + amountToSell);
+            updateLastActive();
             showOnUiAlert("Success!", `${amountToSell} coins sold successfully!`);
         } else {
             showOnUiAlert("Failed", "You do not have enough coins to sell.");
@@ -369,14 +382,8 @@ onAuthStateChanged(auth, user => {
 
     if (user.isAnonymous) {
         userInfo.innerHTML = `<img class="avatar" src="${anonymousProfilePic}" alt="Anonymous User avatar"><div><div style="font-weight:600">Anonymous User</div><div style="font-size:12px; color:var(--text-muted)">Guest Session</div></div>`;
-        sellBtn.disabled = true; // Disable selling for anonymous users
-        sellBtn.style.opacity = '0.5';
-        sellBtn.style.cursor = 'not-allowed';
     } else {
         userInfo.innerHTML = `${user.photoURL ? `<img class="avatar" src="${user.photoURL}" alt="User avatar">` : ''}<div><div style="font-weight:600">${user.displayName || user.email}</div><div style="font-size:12px; color:var(--text-muted)">${user.email || ''}</div></div>`;
-        sellBtn.disabled = false;
-        sellBtn.style.opacity = '';
-        sellBtn.style.cursor = '';
     }
     
     const userRef = ref(db, `users/${currentUserId}`);
@@ -391,7 +398,8 @@ onAuthStateChanged(auth, user => {
                 displayName: user.displayName || null, 
                 photoURL: user.photoURL || null,
                 isAnonymous: user.isAnonymous,
-                isPrivate: false
+                isPrivate: false,
+                lastActive: Date.now()
             });
             privateAccountCheckbox.checked = false;
         } else {
@@ -414,9 +422,6 @@ onAuthStateChanged(auth, user => {
     signInAnonBtn.style.display = '';
     disableClickButton('Sign in to play');
     coinCount.textContent = 'Coins: 0';
-    sellBtn.disabled = true; // Disable selling when signed out
-    sellBtn.style.opacity = '0.5';
-    sellBtn.style.cursor = 'not-allowed';
   }
 });
 
